@@ -35,6 +35,14 @@ cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 sudo cmake --build build --target install -- -j$(nproc)
 ```
 
+Syslog support is on by default on Unix. To build without it:
+
+```bash
+cmake -B build -S . -DLOGGERLIB_ENABLE_SYSLOG=OFF
+```
+
+A `syslog` sink in the config then falls back to the console sink.
+
 ### ✅ Tests
 
 Tests are built by default. You can disable them with:

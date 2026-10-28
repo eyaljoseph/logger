@@ -37,7 +37,7 @@ namespace logger {
          * Defines the destination where log messages will be written.
          * Supported sinks include console output and file output.
          */
-        SinkType sink;
+        SinkType sink{SinkType::CONSOLE};
 
         /**
          * @brief Logger formatter type enumeration
@@ -45,7 +45,7 @@ namespace logger {
          * Defines the format used for logging messages.
          * Supported formats include text and JSON formatting.
          */
-        FormatterType format;
+        FormatterType format{FormatterType::TEXT};
 
         /**
          * @brief Application name for log identification
@@ -54,8 +54,8 @@ namespace logger {
          * This name appears in formatted log output to help distinguish
          * between different applications or services.
          */
-        std::string app_name;
-        std::string file_path;
+        std::string app_name{"Logger"};
+        std::string file_path{"logger.log"};
         std::vector<TargetConfig> targets;
 
         /**
@@ -67,10 +67,14 @@ namespace logger {
          * - Format: Text formatting
          * - App name: "Logger"
          *
+         * A value with the wrong type falls back to its default; the other values still apply.
+         * Relative file paths are resolved against the config file's directory.
+         *
          * @param json_path Path to the JSON configuration file
          */
         explicit Config(const std::string &json_path) {
-            const auto resolve_path = [](const std::string &raw_path) {
+            const std::filesystem::path config_dir = std::filesystem::path(json_path).parent_path();
+            const auto resolve_path = [&config_dir](const std::string &raw_path) {
                 std::string expanded_path = raw_path;
                 if (!raw_path.empty() && raw_path[0] == '~') {
                     const char* home = std::getenv("HOME");
@@ -83,11 +87,25 @@ namespace logger {
                     }
                 }
 
-                const std::filesystem::path path{expanded_path};
-                if (path.is_absolute()) {
-                    return path.lexically_normal().string();
+                std::filesystem::path path{expanded_path};
+                if (path.is_relative()) {
+                    path = config_dir / path;
                 }
                 return path.lexically_normal().string();
+            };
+
+            const auto get_string = [](const nlohmann::json &obj, const char *key,
+                                       const std::string &fallback) -> std::string {
+                const auto it = obj.find(key);
+                if (it == obj.end()) {
+                    return fallback;
+                }
+                if (!it->is_string()) {
+                    std::cerr << "Logger config value '" << key << "' must be a string. Using '"
+                              << fallback << "'." << std::endl;
+                    return fallback;
+                }
+                return it->get<std::string>();
             };
 
             std::ifstream file(json_path);
@@ -95,30 +113,32 @@ namespace logger {
                 std::cerr << "Failed to open logger config file: " << json_path << std::endl;
                 std::cout << "Set's logger to default settings: (sink = console, format = text, app_name = Logger)" <<
                         std::endl;
-                sink = SinkType::CONSOLE;
-                format = FormatterType::TEXT;
-                app_name = "Logger";
-                file_path = "logger.log";
                 return;
             }
 
-            nlohmann::json j;
-            file >> j;
+            const nlohmann::json j = nlohmann::json::parse(file, nullptr, false);
+            if (j.is_discarded() || !j.is_object()) {
+                std::cerr << "Invalid logger config file: " << json_path
+                          << ". Using default settings (sink = console, format = text, app_name = Logger)"
+                          << std::endl;
+                return;
+            }
 
-            sink = string_to_sink_type(j.value("sink", "console"));
-            format = string_to_formatter_type(j.value("format", "text"));
-            app_name = j.value("app_name", "Logger");
-            file_path = resolve_path(j.value("file_path", "logger.log"));
+            sink = string_to_sink_type(get_string(j, "sink", "console"));
+            format = string_to_formatter_type(get_string(j, "format", "text"));
+            app_name = get_string(j, "app_name", "Logger");
+            file_path = resolve_path(get_string(j, "file_path", "logger.log"));
 
-            if (j.contains("targets") && j["targets"].is_array()) {
-                for (const auto &target : j["targets"]) {
+            const auto targets_it = j.find("targets");
+            if (targets_it != j.end() && targets_it->is_array()) {
+                for (const auto &target : *targets_it) {
                     if (!target.is_object()) {
                         continue;
                     }
                     TargetConfig cfg;
-                    cfg.sink = string_to_sink_type(target.value("sink", "console"));
-                    cfg.format = string_to_formatter_type(target.value("format", "text"));
-                    cfg.file_path = resolve_path(target.value("file_path", "logger.log"));
+                    cfg.sink = string_to_sink_type(get_string(target, "sink", "console"));
+                    cfg.format = string_to_formatter_type(get_string(target, "format", "text"));
+                    cfg.file_path = resolve_path(get_string(target, "file_path", "logger.log"));
                     targets.emplace_back(std::move(cfg));
                 }
             }

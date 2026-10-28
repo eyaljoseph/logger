@@ -1,5 +1,9 @@
 #pragma once
+#include <string>
+
+#ifdef LOGGERLIB_HAS_SYSLOG
 #include <syslog.h>
+#endif
 
 namespace logger {
     /**
@@ -53,6 +57,7 @@ X(critical, CRITICAL, "CRITICAL", LOG_CRIT)
         return "INFO"; // Default fallback
     }
 
+#ifdef LOGGERLIB_HAS_SYSLOG
     /**
      * @brief Convert a LogLevel enum value to its corresponding syslog priority level
      *
@@ -70,4 +75,5 @@ X(critical, CRITICAL, "CRITICAL", LOG_CRIT)
         }
         return LOG_INFO; // Default fallback
     }
+#endif
 } // namespace logger

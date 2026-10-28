@@ -2,7 +2,6 @@
 
 #ifdef LOGGERLIB_HAS_SYSLOG
 #include <syslog.h>
-#endif
 
 using namespace logger;
 
@@ -18,3 +17,4 @@ SyslogSink::~SyslogSink() {
 void SyslogSink::write(const Record& r, std::string_view formatted) {
     syslog(to_syslog_level(r.level), "%s", std::string(formatted).c_str());
 }
+#endif

@@ -2,6 +2,8 @@
 #include "sink.hpp"
 #include <string>
 
+// Only available when built with LOGGERLIB_ENABLE_SYSLOG on a Unix system.
+#ifdef LOGGERLIB_HAS_SYSLOG
 namespace logger {
     /**
      * @brief A logging sink that writes messages to the system log (syslog)
@@ -38,3 +40,4 @@ namespace logger {
         std::string app_;
     };
 } // namespace logger
+#endif

@@ -177,6 +177,8 @@ namespace logger {
     void add_target(SinkPtr sink, FormatterPtr formatter);
 
    private:
+    void reset(std::vector<Target> targets, std::string app_name);
+
     std::vector<Target> targets_;
     std::mutex m_;
     std::string app_name_;
